@@ -1,10 +1,12 @@
-== AHWS
+AHWS 
+==
 
 Async Http Web Server
 
 Simple to use Async webserver with websocket support
 
-=== Eample
+Example Http Server
+===
 ```
 HttpServer s = new HttpServer(8080);
 s.OnLog += Console.WriteLine;
@@ -18,6 +20,30 @@ s.AddRoute("/", (h) => {
 
 	return rsp;
 });
+
+s.Start();
+```
+
+Example Websocket Echo
+===
+```
+HttpServer s = new HttpServer(8080);
+
+WebsocketServer ws = new WebsocketServer();
+ws.OnWebsocketConnect += (w) =>
+{
+    w.OnFrame += async (f) => 
+    {
+        //send the frame back
+        await f.WebSocket.SendFrame(f.Frame);
+    };
+    w.Start();
+};
+
+s.OnLog += Console.WriteLine;
+s.Options = HttpServerOptions.GZip | HttpServerOptions.KeepAlive;
+
+s.AddRoute("/ws", ws.WebsocketUpgrade);
 
 s.Start();
 ```
