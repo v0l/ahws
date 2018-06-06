@@ -1,4 +1,4 @@
-﻿using ahws.Http;
+﻿using v0l.ahws.Http;
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -6,7 +6,7 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-namespace ahws
+namespace v0l.ahws
 {
     [Flags]
     public enum HttpServerOptions
@@ -19,14 +19,14 @@ namespace ahws
 
     public class HttpServer
     {
-        private Socket sock;
-        private IPEndPoint ip;
-        private Thread _t;
-        private bool _running;
-        private ManualResetEvent _acceptre;
+        private Socket ListenSocket { get; set; }
+        private IPEndPoint LocalIp { get; set; }
+        private Thread MainThread { get; set; }
+        private bool IsRunning { get; set; }
+        private ManualResetEvent AcceptReset { get; set; }
+        private SocketAsyncEventArgs Sea { get; set; }
 
-        public Routes Routes;
-
+        public Routes Routes { get; set; }
         public HttpServerOptions Options { get; set; }
         public string ServerName { get; set; }
 
@@ -50,7 +50,7 @@ namespace ahws
             Options = HttpServerOptions.KeepAlive;
 
             Routes = new Routes();
-            ip = i;
+            LocalIp = i;
             AddDefaultRoutes();
         }
 
@@ -92,16 +92,18 @@ namespace ahws
 
         public void Start()
         {
-            _running = true;
-            _t = new Thread(new ThreadStart(() => {
+            IsRunning = true;
+            MainThread = new Thread(new ThreadStart(() => {
                 try
                 {
-                    sock = new Socket(SocketType.Stream, ProtocolType.Tcp);
+                    AcceptReset = new ManualResetEvent(false);
 
-                    sock.Bind(ip);
-                    sock.Listen(100);
+                    ListenSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
 
-                    OnLog(String.Format("[HttpServer] Listening on {0}", ip.ToString()));
+                    ListenSocket.Bind(LocalIp);
+                    ListenSocket.Listen(100);
+
+                    OnLog(String.Format("[HttpServer] Listening on {0}", LocalIp.ToString()));
                 }
                 catch (Exception ex)
                 {
@@ -109,37 +111,37 @@ namespace ahws
                     return;
                 }
 
-                while (_running)
+                while (IsRunning)
                 {
                     StartListening();
                 }
             }));
-            _t.Start();
+            MainThread.Start();
         }
 
         public void Stop()
         {
-            _running = false;
-            _acceptre.Set();
-            _t.Join();
+            IsRunning = false;
+            AcceptReset.Set();
+            MainThread.Join();
         }
         
         private void StartListening()
         {
-            _acceptre = new ManualResetEvent(false);
+            Sea = new SocketAsyncEventArgs();
+            AcceptReset.Reset();
 
-            SocketAsyncEventArgs e = new SocketAsyncEventArgs();
-            e.Completed += (s, a) => {
-                HandleSocket(e.AcceptSocket);
-                _acceptre.Set();
+            Sea.Completed += (s, a) => {
+                HandleSocket(Sea.AcceptSocket);
+                AcceptReset.Set();
             };
             
             try
             {
-                if (!sock.AcceptAsync(e))
+                if (!ListenSocket.AcceptAsync(Sea))
                 {
-                    HandleSocket(e.AcceptSocket);
-                    _acceptre.Set();
+                    AcceptReset.Set();
+                    HandleSocket(Sea.AcceptSocket);
                 }
             }
             catch(Exception ex)
@@ -147,14 +149,22 @@ namespace ahws
                 OnLog(ex.ToString());
             }
 
-            _acceptre.WaitOne();
+            AcceptReset.WaitOne();
+
+            Sea.Dispose();
         }
         
 
         private void HandleSocket(Socket s)
         {
-            L(String.Format("[HttpServer] Connection from: {0}", s.RemoteEndPoint.ToString()));
-            new HttpSocket(this, s);
+            if (s != null)
+            {
+                s.LingerState.Enabled = false;
+                s.LingerState.LingerTime = 5;
+
+                L(String.Format("[HttpServer] Connection from: {0}", s.RemoteEndPoint != null ? s.RemoteEndPoint.ToString() : "Unknown"));
+                new HttpSocket(this, s);
+            }
         }
     }
 }

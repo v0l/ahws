@@ -1,13 +1,13 @@
-﻿using System;
+﻿using v0l.ahws.Http;
+using System;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Text;
-using ahws.Http;
 
-namespace ahws
+namespace v0l.ahws
 {
     public enum RouteType
     {
@@ -61,6 +61,7 @@ namespace ahws
         public HttpServer Server { get; set; }
         public HttpRequest Request { get; set; }
         public Route Route { get; set; }
+        public Action<RouteHandle> AfterResponse { get; set; }
     }
 
     public class Routes
@@ -96,7 +97,7 @@ namespace ahws
             return routes.TryAdd(r, func);
         }
 
-        public async Task<HttpResponse> HandleRequest(HttpServer srv, HttpRequest req, HttpSocket so)
+        public async Task<Tuple<HttpResponse, RouteHandle>> HandleRequest(HttpServer srv, HttpRequest req, HttpSocket so)
         {
             var handle = routes.Keys.FirstOrDefault(a => a.Match(req));
             
@@ -104,14 +105,15 @@ namespace ahws
             {
                 try
                 {
-                    var rsp = await Task.Run<HttpResponse>(() => routes[handle](new RouteHandle(handle, srv, req, so)));
+                    var rh = new RouteHandle(handle, srv, req, so);
+                    var rsp = await Task.Run<HttpResponse>(() => routes[handle](rh));
                     if(rsp != null)
                     {
-                        return rsp;
+                        return new Tuple<HttpResponse, RouteHandle>(rsp, rh);
                     }
                     else
                     {
-                        return req.CreateResponse(HttpStatus.InternalServerError);
+                        return new Tuple<HttpResponse, RouteHandle>(req.CreateResponse(HttpStatus.InternalServerError), rh);
                     }
                 }
                 catch(Exception ex)
@@ -123,12 +125,12 @@ namespace ahws
                     rsp.Headers.ContentLength = dt.LongLength;
                     rsp.Headers.ContentType = "text/html";
 
-                    return rsp;
+                    return new Tuple<HttpResponse, RouteHandle>(rsp, null);
                 }
             }
             else
             {
-                return req.CreateResponse(HttpStatus.NotFound);
+                return new Tuple<HttpResponse, RouteHandle>(req.CreateResponse(HttpStatus.NotFound), null);
             }
         }
 

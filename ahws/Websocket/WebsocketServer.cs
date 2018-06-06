@@ -1,11 +1,11 @@
-﻿using ahws.Http;
-using ahws.Websocket.Extensions;
-using System;
+﻿using System;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using v0l.ahws.Http;
+using v0l.ahws.Websocket.Extensions;
 
-namespace ahws.Websocket
+namespace v0l.ahws.Websocket
 {
     public class WebsocketServer
     {
@@ -41,10 +41,12 @@ namespace ahws.Websocket
                             {
                                 rsp.Headers.Add("Sec-WebSocket-Extensions", string.Join(", ", ex.Select(a => a.Options.ToString())));
                             }
-
-                            OnWebsocketConnect(new WebSocket(h.Request, rsp, h.Socket.Socket, ex));
-
-                            h.Socket.Close();
+                            
+                            OnWebsocketConnect(new WebSocket(h, rsp, ex));
+                            h.AfterResponse = (h2) =>
+                            {
+                                h2.Socket.Close(false);
+                            };
                         }
                     }
                     else

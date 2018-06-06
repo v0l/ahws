@@ -1,4 +1,4 @@
-﻿namespace ahws.Websocket
+﻿namespace v0l.ahws.Websocket
 {
     public class FrameEventArgs
     {

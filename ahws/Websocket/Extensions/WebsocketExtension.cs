@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ahws.Websocket.Extensions
+namespace v0l.ahws.Websocket.Extensions
 {
     public abstract class WebsocketExtension
     {

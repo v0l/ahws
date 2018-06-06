@@ -4,7 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ahws.Http
+namespace v0l.ahws.Http
 {
     public class HttpSocket
     {
@@ -30,28 +30,48 @@ namespace ahws.Http
             _leaveOpen = leaveOpen;
 
             _ct = new CancellationTokenSource();
-            _ns = new NetworkStream(s);
+            _ns = new NetworkStream(s, false);
 
             readTask();
         }
 
-        public void Close()
+        public void Close(bool closeSocket = true)
         {
-            _ct.Cancel();
+            if (_ct != null)
+            {
+                _ct.Cancel();
+                _ct.Dispose();
+                _ct = null;
+            }
+
+            if (_ns != null)
+            {
+                _ns.Close();
+                _ns.Dispose();
+                _ns = null;
+
+            }
+
+            if (closeSocket && _s != null)
+            {
+                _s.Close();
+                _s.Dispose();
+                _s = null;
+            }
         }
 
         private async void readTask()
         {
             var crlf = Encoding.UTF8.GetBytes("\r\n\r\n");
 
-            while (!_ct.Token.IsCancellationRequested)
+            while (_ct != null && !_ct.Token.IsCancellationRequested)
             {
                 try
                 {
                     var headers = await ReadTillSequence(crlf);
                     if (headers == null)
                     {
-                        _ct.Cancel();
+                        Close();
                         break;
                     }
                     var hs = Encoding.UTF8.GetString(headers);
@@ -59,7 +79,7 @@ namespace ahws.Http
                     _srv.L(hs);
 
                     var req = HttpRequest.Parse(hs);
-                    HttpResponse rsp = null;
+                    Tuple<HttpResponse, RouteHandle> rsp = null;
 
                     if (req != null)
                     {
@@ -73,25 +93,30 @@ namespace ahws.Http
                     }
                     else
                     {
-                        rsp = new HttpResponse(HttpStatus.BadRequest);
+                        rsp = new Tuple<HttpResponse, RouteHandle>(new HttpResponse(HttpStatus.BadRequest), null);
                     }
 
-                    if (rsp != null)
+                    if (rsp.Item1 != null)
                     {
                         HttpContext ctx = new HttpContext()
                         {
                             Request = req,
-                            Response = rsp,
+                            Response = rsp.Item1,
                             Direction = HttpContextDirection.Response,
                             Options = _srv.Options,
                             ServerName = _srv.ServerName
                         };
 
-                        var dt = await rsp.ToBuffer(ctx);
+                        var dt = await rsp.Item1.ToBuffer(ctx);
 
                         _srv.L(Encoding.UTF8.GetString(dt));
 
                         await _ns.WriteAsync(dt, 0, dt.Length);
+                    }
+
+                    if(rsp.Item2 != null)
+                    {
+                        rsp.Item2.AfterResponse?.Invoke(rsp.Item2);
                     }
 
                     if (req != null && req.Headers.Connection != null)
@@ -104,7 +129,8 @@ namespace ahws.Http
                 }
                 catch
                 {
-                    _ct.Cancel();
+                    Close();
+                    break;
                 }
             }
         }

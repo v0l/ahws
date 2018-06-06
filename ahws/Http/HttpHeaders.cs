@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace ahws.Http
+namespace v0l.ahws.Http
 {
     public class HttpHeaders : IEnumerable<KeyValuePair<string, object>>
     {
@@ -353,10 +353,6 @@ namespace ahws.Http
             }
         }
 
-        /// <summary>
-        /// This value is always overwritten before sending response to client
-        /// <para>Setting this value manually is pointless :)</para>
-        /// </summary>
         public long? ContentLength
         {
             get

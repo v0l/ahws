@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace ahws.Websocket
+namespace v0l.ahws.Websocket
 {
     [Flags]
     public enum WebSocketFlags

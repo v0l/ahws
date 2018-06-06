@@ -4,7 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
 
-namespace ahws.Websocket.Extensions
+namespace v0l.ahws.Websocket.Extensions
 {
     public class PerMessageDeflate : WebsocketExtension
     {

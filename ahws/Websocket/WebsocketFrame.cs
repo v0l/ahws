@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ahws.Websocket
+namespace v0l.ahws.Websocket
 {
     public class WebSocketFrame
     {
@@ -75,7 +75,7 @@ namespace ahws.Websocket
         {
             if (typeof(T) == typeof(string))
             {
-                var p = PackData(Encoding.UTF8.GetBytes(data as string));
+                var p = await PackData(Encoding.UTF8.GetBytes(data as string));
                 p.OpCode = WebSocketOpCode.TextFrame;
                 return p;
 
@@ -88,7 +88,7 @@ namespace ahws.Websocket
             return null;
         }
 
-        public static WebSocketFrame PackData(byte[] data)
+        public static async Task<WebSocketFrame> PackData(byte[] data)
         {
             WebSocketFrame ret = new WebSocketFrame();
 

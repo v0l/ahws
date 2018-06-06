@@ -1,5 +1,5 @@
-﻿using ahws.Http;
-using ahws.Websocket.Extensions;
+﻿using v0l.ahws.Http;
+using v0l.ahws.Websocket.Extensions;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,7 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ahws.Websocket
+namespace v0l.ahws.Websocket
 {
     public class WebSocket
     {
@@ -44,9 +44,21 @@ namespace ahws.Websocket
         {
             get
             {
-                if (_s != null && _s.Connected)
+                if (_s != null)
                 {
                     return _s.RemoteEndPoint;
+                }
+                return null;
+            }
+        }
+
+        public EndPoint LocalEndPoint
+        {
+            get
+            {
+                if(_s != null)
+                {
+                    return _s.LocalEndPoint;
                 }
                 return null;
             }
@@ -60,15 +72,16 @@ namespace ahws.Websocket
             }
         }
 
-        public WebSocket(HttpRequest req, HttpResponse rsp, Socket s, List<WebsocketExtension> opt)
+        public WebSocket(RouteHandle h, HttpResponse rsp, List<WebsocketExtension> opt)
         {
             _isServerClient = true;
             Extensions = opt ?? new List<WebsocketExtension>();
 
             _ct = new CancellationTokenSource();
-            _origReq = req;
+            _origReq = h.Request;
             _origRsp = rsp;
-            _s = s;
+            _s = h.Socket.Socket;
+
             _ns = new NetworkStream(_s);
         }
 
@@ -85,7 +98,8 @@ namespace ahws.Websocket
             wsf.Flags = WebSocketFlags.FinalFragment;
             wsf.OpCode = WebSocketOpCode.ConnectionClose;
 
-            wsf.Payload = new byte[2 + msg.Length];
+            var dt2 = Encoding.UTF8.GetBytes(msg ?? "");
+            wsf.Payload = new byte[2 + dt2.Length];
             wsf.PayloadLength = (ulong)wsf.Payload.LongLength;
 
             var dt = BitConverter.GetBytes((UInt16)(int)c);
@@ -93,9 +107,8 @@ namespace ahws.Websocket
             wsf.Payload[0] = dt[1];
             wsf.Payload[1] = dt[0];
 
-            if (!string.IsNullOrEmpty(msg))
+            if (dt2.Length > 0)
             {
-                var dt2 = Encoding.UTF8.GetBytes(msg);
                 Buffer.BlockCopy(dt2, 0, wsf.Payload, 2, dt2.Length);
             }
 
@@ -103,14 +116,17 @@ namespace ahws.Websocket
             _sentClose = true;
         }
 
-        private void End()
+        private void End(WebsocketCloseCode c = WebsocketCloseCode.ProtocolError, string msg = null)
         {
             _ct.Cancel();
+            _ct.Dispose();
+            _ct = null;
+            
+            _s.Close();
+            _s.Dispose();
+            _s = null;
 
-            if (_s.Connected)
-            {
-                _s.Close();
-            }
+            OnDisconnect(c, msg);
         }
 
         public async Task Pong(WebSocketFrame f)
@@ -122,7 +138,7 @@ namespace ahws.Websocket
 
         private async void doRead()
         {
-            while (!_ct.IsCancellationRequested)
+            while (_ct != null && !_ct.IsCancellationRequested)
             {
                 try
                 {
@@ -179,18 +195,22 @@ namespace ahws.Websocket
                                 if (rsv)
                                 {
                                     await Close(WebsocketCloseCode.ProtocolError, "RSV set and no extension negotiated");
+                                    End();
                                 }
                                 else if(wsf.PayloadLength == 0)
                                 {
                                     await Close();
+                                    End();
                                 }
                                 else if(wsf.PayloadLength == 1)
                                 {
                                     await Close(WebsocketCloseCode.ProtocolError, "Close frame code invalid");
+                                    End();
                                 }
                                 else if (wsf.PayloadLength > 125)
                                 {
                                     await Close(WebsocketCloseCode.ProtocolError, "Close frame too long");
+                                    End();
                                 }
                                 else
                                 {
@@ -206,10 +226,8 @@ namespace ahws.Websocket
                                         await Close();
                                     }
 
-                                    OnDisconnect((WebsocketCloseCode)cc, cm);
+                                    End((WebsocketCloseCode)cc, cm);
                                 }
-
-                                End();
                             }
                             else if (wsf.PayloadLength > 125)
                             {
@@ -455,7 +473,7 @@ namespace ahws.Websocket
         {
             try
             {
-                if (wf != null && _s.Connected)
+                if (wf != null && _s != null && _s.Connected)
                 {
                     if (_isServerClient)
                     {
@@ -483,7 +501,10 @@ namespace ahws.Websocket
             {
                 OnError(ex);
 
-                End();
+                if (_s != null) //If socket is null dont call End, its already called from the read loop
+                {
+                    End();
+                }
             }
         }
     }
