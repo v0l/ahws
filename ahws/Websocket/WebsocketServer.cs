@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using v0l.ahws.Http;
 using v0l.ahws.Websocket.Extensions;
 
@@ -12,7 +14,7 @@ namespace v0l.ahws.Websocket
         public delegate void NewWebsocket(WebSocket ws);
         public event NewWebsocket OnWebsocketConnect = (ws) => { };
 
-        public HttpResponse WebsocketUpgrade(RouteHandle h)
+        public async Task<HttpResponse> WebsocketUpgrade(RouteHandle h)
         {
             var rsp = h.Request.CreateResponse(HttpStatus.SwitchingProtocols);
 
@@ -30,7 +32,7 @@ namespace v0l.ahws.Websocket
                         var wsguid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
                         using (SHA1Managed s = new SHA1Managed())
                         {
-                            var ha = s.ComputeHash(Encoding.UTF8.GetBytes(string.Format("{0}{1}", (key as string), wsguid)));
+                            var ha = s.ComputeHash(Encoding.UTF8.GetBytes($"{(key as string)}{wsguid}"));
 
                             rsp.Headers.Add("Sec-WebSocket-Accept", Convert.ToBase64String(ha));
                             rsp.Headers.Upgrade = "websocket";
@@ -65,6 +67,27 @@ namespace v0l.ahws.Websocket
             }
 
             return rsp;
+        }
+
+        public static void WebsocketUpgrade(HttpRequest req, List<WebsocketExtension> ext = null, List<string> subproto = null)
+        {
+            var key = new byte[10];
+            new Random().NextBytes(key);
+
+            req.Headers.Upgrade = "websocket";
+            req.Headers.Connection = "Upgrade";
+            req.Headers["Sec-WebSocket-Key"] = Convert.ToBase64String(key);
+            req.Headers["Sec-WebSocket-Version"] = "13";
+
+            if(ext != null)
+            {
+                req.Headers["Sec-Websocket-Extensions"] = string.Join(", ", ext.Select(a => a.Options.ToString()));
+            }
+
+            if(subproto != null)
+            {
+                req.Headers["Sec-Websocket-Protocol"] = string.Join(", ", subproto);
+            }
         }
 
         public void EnablePerMessageDeflate()

@@ -4,6 +4,7 @@ using System;
 using System.Text;
 using v0l.ahws.Websocket;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace ahws_test
 {
@@ -29,14 +30,14 @@ namespace ahws_test
             s.Options = HttpServerOptions.GZip | HttpServerOptions.KeepAlive;
 
             s.AddRoute("/ws", ws.WebsocketUpgrade);
-            s.AddRoute("/", (h) => {
+            s.AddRoute("/", (h) => Task.Run(() => {
                 var rsp = h.Request.CreateResponse(HttpStatus.OK);
 
                 rsp.Content = new HttpContent(Encoding.UTF8.GetBytes("<h1>Hello world!</h1>"));
                 rsp.Headers.ContentType = "text/html";
 
                 return rsp;
-            });
+            }));
 
             s.Start();
 

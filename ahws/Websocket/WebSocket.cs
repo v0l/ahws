@@ -18,15 +18,16 @@ namespace v0l.ahws.Websocket
         public List<string> SubProtocols { get; set; }
         public List<WebsocketExtension> Extensions { get; set; }
 
-        private bool _isServerClient;
-        private bool _sentClose;
-        private Socket _s;
-        private NetworkStream _ns;
-        private CancellationTokenSource _ct;
-        private HttpRequest _origReq;
-        private HttpResponse _origRsp;
-        private MemoryStream _fragStream;
-        private WebSocketOpCode _fragMessageType;
+        private bool _isSecure { get; set; }
+        private bool _isServerClient { get; set; }
+        private bool _sentClose { get; set; }
+        private Socket _s { get; set; }
+        private NetworkStream _ns { get; set; }
+        private CancellationTokenSource _ct { get; set; }
+        private HttpRequest _origReq { get; set; }
+        private HttpResponse _origRsp { get; set; }
+        private MemoryStream _fragStream { get; set; }
+        private WebSocketOpCode _fragMessageType { get; set; }
 
         public delegate void FrameEvent(FrameEventArgs e);
         public event FrameEvent OnFrame = (e) => { };
@@ -83,6 +84,24 @@ namespace v0l.ahws.Websocket
             _s = h.Socket.Socket;
 
             _ns = new NetworkStream(_s);
+        }
+
+        public WebSocket(string url, List<string> subproto = null)
+        {
+            if (!url.StartsWith("ws"))
+            {
+                throw new Exception("Url must start with wss:// or ws://");
+            }
+
+            _isServerClient = false;
+            Extensions = new List<WebsocketExtension>() { new PerMessageDeflate() };
+
+            var _isSecure = url.StartsWith("wss");
+
+            //make web resuts to upgrade to ws
+            _origReq = new HttpRequest($"http{(_isSecure ? "s" : "")}:{url.Substring(url.IndexOf(':'))}");
+            WebsocketServer.WebsocketUpgrade(_origReq, Extensions, subproto);
+            var hs = _origReq.CreateSocket();
         }
 
         public void Start()

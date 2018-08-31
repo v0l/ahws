@@ -1,4 +1,6 @@
 ﻿using System;
+using System.IO;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -8,19 +10,38 @@ namespace v0l.ahws.Http
 {
     public class HttpSocket
     {
-        private HttpServer _srv;
-        private Socket _s;
-        private NetworkStream _ns;
-        private bool _leaveOpen;
-        
-        private CancellationTokenSource _ct;
+        private HttpServer _srv { get; set; }
+        private Socket _s { get; set; }
+        private Stream _ns { get; set; }
+        private bool _leaveOpen { get; set; }
+        private CancellationTokenSource _ct { get; set; }
+        private Task _readTask {get;set;}
 
-        public Socket Socket
+        public Socket Socket => _s;
+
+        public delegate Task HandleResponse(HttpContent ctx);
+        public event HandleResponse OnResponse = (c) => { return null; };
+
+        public HttpSocket(HttpRequest req, bool leaveOpen = true)
         {
-            get
+            _s = new Socket(SocketType.Stream, ProtocolType.Tcp);
+            _s.Connect(req.RequestUri.Host, req.RequestUri.Port);
+
+            _leaveOpen = leaveOpen;
+            _ct = new CancellationTokenSource();
+
+            if (req.RequestUri.Scheme == "https")
             {
-                return _s;
+                var ss = new SslStream(new NetworkStream(_s, false));
+                ss.AuthenticateAsClient(req.RequestUri.Host);
+                _ns = ss;
             }
+            else
+            {
+                _ns = new NetworkStream(_s, false);
+            }
+
+            _readTask = readResponseTask();
         }
 
         public HttpSocket(HttpServer srv, Socket s, bool leaveOpen = true)
@@ -32,7 +53,7 @@ namespace v0l.ahws.Http
             _ct = new CancellationTokenSource();
             _ns = new NetworkStream(s, false);
 
-            readTask();
+            _readTask = readTask();
         }
 
         public void Close(bool closeSocket = true)
@@ -60,7 +81,29 @@ namespace v0l.ahws.Http
             }
         }
 
-        private async void readTask()
+        private async Task readResponseTask()
+        {
+            var crlf = Encoding.UTF8.GetBytes("\r\n\r\n");
+
+            while (_ct != null && !_ct.Token.IsCancellationRequested)
+            {
+                try
+                {
+                    var headers = await ReadTillSequence(crlf);
+                    if (headers == null)
+                    {
+                        Close();
+                        break;
+                    }
+                    var hs = Encoding.UTF8.GetString(headers);
+                    var rsp = HttpResponse.Parse(hs);
+
+                }
+                catch { }
+            }
+        }
+
+        private async Task readTask()
         {
             var crlf = Encoding.UTF8.GetBytes("\r\n\r\n");
 
@@ -114,7 +157,7 @@ namespace v0l.ahws.Http
                         await _ns.WriteAsync(dt, 0, dt.Length);
                     }
 
-                    if(rsp.Item2 != null)
+                    if (rsp.Item2 != null)
                     {
                         rsp.Item2.AfterResponse?.Invoke(rsp.Item2);
                     }

@@ -80,19 +80,19 @@ namespace v0l.ahws
     </body>
 </html>";
 
-        private ConcurrentDictionary<Route, Func<RouteHandle, HttpResponse>> routes = new ConcurrentDictionary<Route, Func<RouteHandle, HttpResponse>>();
+        private ConcurrentDictionary<Route, Func<RouteHandle, Task<HttpResponse>>> routes = new ConcurrentDictionary<Route, Func<RouteHandle, Task<HttpResponse>>>();
         
-        public bool AddRoute(string path, Func<RouteHandle, HttpResponse> func)
+        public bool AddRoute(string path, Func<RouteHandle, Task<HttpResponse>> func)
         {
             return routes.TryAdd(new Route(path), func);
         }
 
-        public bool AddRoute(Regex r, Func<RouteHandle, HttpResponse> func)
+        public bool AddRoute(Regex r, Func<RouteHandle, Task<HttpResponse>> func)
         {
             return routes.TryAdd(new Route(r), func);
         }
 
-        public bool AddRoute(Route r, Func<RouteHandle, HttpResponse> func)
+        public bool AddRoute(Route r, Func<RouteHandle, Task<HttpResponse>> func)
         {
             return routes.TryAdd(r, func);
         }
@@ -106,7 +106,7 @@ namespace v0l.ahws
                 try
                 {
                     var rh = new RouteHandle(handle, srv, req, so);
-                    var rsp = await Task.Run<HttpResponse>(() => routes[handle](rh));
+                    var rsp = await routes[handle](rh);
                     if(rsp != null)
                     {
                         return new Tuple<HttpResponse, RouteHandle>(rsp, rh);

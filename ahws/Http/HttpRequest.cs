@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -38,6 +39,13 @@ namespace v0l.ahws.Http
             Headers = new HttpHeaders();
         }
 
+        public HttpRequest(string url, HttpMethod method = HttpMethod.GET)
+        {
+            Version = new Version("1.1");
+            Method = method;
+            RequestUri = new Uri(url);
+        }
+
         public HttpResponse CreateResponse(HttpStatus status)
         {
             HttpResponse ret = new HttpResponse();
@@ -47,6 +55,11 @@ namespace v0l.ahws.Http
             ret.Request = this;
 
             return ret;
+        }
+
+        public HttpSocket CreateSocket()
+        {
+            return new HttpSocket(this);
         }
 
         public async Task<byte[]> ToBuffer()

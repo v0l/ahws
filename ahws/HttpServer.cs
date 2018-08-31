@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace v0l.ahws
 {
@@ -56,7 +57,7 @@ namespace v0l.ahws
 
         private void AddDefaultRoutes()
         {
-            Routes.AddRoute("/favicon.ico", (h) =>
+            Routes.AddRoute("/favicon.ico", (h) => Task.Run(() =>
             {
                 HttpResponse rsp = h.Request.CreateResponse(HttpStatus.OK);
 
@@ -64,20 +65,20 @@ namespace v0l.ahws
                 rsp.Content = new HttpContent(Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAABAAAAAQBPJcTWAAAA2UlEQVR4nO2WUQ6CMAyG6wUgEnkXb+AV2ORceiA4AQTuo3fQLtaIS8FsmTVZ1uTPtjbtvqc/BUghFxXqbOkgCdCg7pYaSQDFAKgoAXJUidrRmUsDtKgb6kpnS/laCmC0PhmlAXrrkz5KAM5U9pIAnKmcJAG4YXWUABk8DeWlTBqgg09T6aQBXEzlJwAuwxKAN4BZiy7wdjRzryQBQrmaNwC3KPgMSwBxAgwBAIZvAJopaGqarPxE+bUNd6ln8Z+CLopk7ltqOs5qmt5A9RA9BazExjHv2/PfeAA/ToosuKQ06gAAAABJRU5ErkJggg=="));
 
                 return rsp;
-            });
+            }));
         }
 
-        public bool AddRoute(string path, Func<RouteHandle, HttpResponse> func)
+        public bool AddRoute(string path, Func<RouteHandle, Task<HttpResponse>> func)
         {
             return Routes.AddRoute(path, func);
         }
 
-        public bool AddRoute(Regex r, Func<RouteHandle, HttpResponse> func)
+        public bool AddRoute(Regex r, Func<RouteHandle, Task<HttpResponse>> func)
         {
             return Routes.AddRoute(r, func);
         }
 
-        public bool AddRoute(Route r, Func<RouteHandle, HttpResponse> func)
+        public bool AddRoute(Route r, Func<RouteHandle, Task<HttpResponse>> func)
         {
             return Routes.AddRoute(r, func);
         }
