@@ -5,7 +5,7 @@ VisualStudioVersion = 15.0.26823.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ahws", "ahws\ahws.csproj", "{F0639A66-AA45-4844-B847-17AD8C3DECBC}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ahws-test", "ahws-test\ahws-test.csproj", "{DCE07E91-009D-4A05-9CA2-7EC28C08063E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ahws-test", "ahws-example-server\ahws-example-server.csproj", "{DCE07E91-009D-4A05-9CA2-7EC28C08063E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

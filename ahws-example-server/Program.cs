@@ -6,7 +6,7 @@ using v0l.ahws.Websocket;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace ahws_test
+namespace ahws_example_server
 {
     class Program
     {
